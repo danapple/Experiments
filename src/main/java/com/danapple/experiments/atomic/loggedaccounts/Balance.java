@@ -53,7 +53,7 @@ class Balance
                 .stream()
                 .filter(log -> log.createTime() < nowTime - 500)
                 .forEach(log -> log.state().abort());
-        return new Balance(balance, getPendingLogEntries());
+        return new Balance(getBalanceValue(), getPendingLogEntries());
     }
 
     int getLogLength()

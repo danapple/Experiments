@@ -1,5 +1,6 @@
 package com.danapple.experiments.atomic.loggedaccounts;
 
+import static com.danapple.experiments.atomic.loggedaccounts.BalanceLogStatus.ABORTED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
@@ -20,6 +21,13 @@ class BalanceTest
     {
         Balance balance = new Balance(BigDecimal.TEN);
         assertThat(balance.getBalanceValue()).isEqualTo(BigDecimal.TEN);
+    }
+
+    @Test
+    void startsWithSubmittedNegativeBalance()
+    {
+        Balance balance = new Balance(BigDecimal.TEN.negate());
+        assertThat(balance.getBalanceValue()).isEqualTo(BigDecimal.TEN.negate());
     }
 
     @Test
@@ -47,7 +55,6 @@ class BalanceTest
         Balance balance = new Balance(BigDecimal.TEN, log);
 
         assertThat(balance.getLogLength()).isEqualTo(1);
-
         assertThat(balance.getBalanceValue()).isEqualTo(BigDecimal.TEN);
     }
 
@@ -59,11 +66,12 @@ class BalanceTest
         Balance balance = new Balance(BigDecimal.TEN, log);
         state.complete();
 
+        assertThat(balance.getLogLength()).isEqualTo(1);
         assertThat(balance.getBalanceValue()).isEqualTo(BigDecimal.TEN.add(BigDecimal.ONE));
     }
 
     @Test
-    void returnsPendingLog()
+    void returnsPendingInitialLog()
     {
         BalanceLogState state = new BalanceLogState();
         BalanceLogEntry logEntry = new BalanceLogEntry(BigDecimal.ONE, state, System.currentTimeMillis());
@@ -74,7 +82,7 @@ class BalanceTest
     }
 
     @Test
-    void doesNotReturnCompletedLog()
+    void doesNotReturnCompletedInitialLog()
     {
         BalanceLogState state = new BalanceLogState();
         BalanceLogEntry logEntry = new BalanceLogEntry(BigDecimal.ONE, state, System.currentTimeMillis());
@@ -86,7 +94,7 @@ class BalanceTest
     }
 
     @Test
-    void createsNewBalanceWithPendingLog()
+    void pendingLogEntriesIncludesPendingLog()
     {
         BalanceLogState state = new BalanceLogState();
         BalanceLogEntry logEntry = new BalanceLogEntry(BigDecimal.ONE, state, System.currentTimeMillis());
@@ -97,20 +105,48 @@ class BalanceTest
     }
 
     @Test
-    void createsNewBalanceWithoutCompletedLog()
+    void pendingLogEntriesDoesNotIncludeCompletedLog()
     {
         BalanceLogState state = new BalanceLogState();
         BalanceLogEntry logEntry = new BalanceLogEntry(BigDecimal.ONE, state, System.currentTimeMillis());
         Balance balance = new Balance(BigDecimal.TEN);
-        state.complete();
 
         Balance newBalance = balance.addLogEntry(logEntry);
+        state.complete();
 
         assertThat(newBalance.getPendingLogEntries()).isEmpty();
     }
 
     @Test
-    void doesNotRemoveRecentLogEntry()
+    void pendingLogEntriesDoesNotIncludeAbortedLog()
+    {
+        BalanceLogState state = new BalanceLogState();
+        BalanceLogEntry logEntry = new BalanceLogEntry(BigDecimal.ONE, state, System.currentTimeMillis());
+        Balance balance = new Balance(BigDecimal.TEN);
+
+        Balance newBalance = balance.addLogEntry(logEntry);
+        state.abort();
+
+        assertThat(newBalance.getPendingLogEntries()).isEmpty();
+    }
+
+    @Test
+    void flattenedBalanceHasNewValue()
+    {
+        BalanceLogState state = new BalanceLogState();
+        BalanceLogEntry logEntry = new BalanceLogEntry(BigDecimal.ONE, state, System.currentTimeMillis());
+        Balance balance = new Balance(BigDecimal.TEN);
+
+        Balance newBalance = balance.addLogEntry(logEntry);
+        state.complete();
+
+        Balance flattenedBalance = newBalance.flattenLog();
+        assertThat(flattenedBalance.getBalanceValue()).isEqualTo(BigDecimal.TEN.add(BigDecimal.ONE));
+        assertThat(flattenedBalance.getLogLength()).isZero();
+    }
+
+    @Test
+    void doesNotRemoveRecentPendingLogEntry()
     {
         long nowTime = System.currentTimeMillis();
 
@@ -126,7 +162,7 @@ class BalanceTest
     }
 
     @Test
-    void removesStaleLogEntry()
+    void abortsAndRemovesStalePendingLogEntry()
     {
         long nowTime = System.currentTimeMillis();
         long testTime = nowTime - 1000;
@@ -140,5 +176,6 @@ class BalanceTest
         Balance flattendBalance = adjustedBalance.flattenLog();
 
         assertThat(flattendBalance.getLogLength()).isEqualTo(0);
+        assertThat(state.getStatus()).isEqualTo(ABORTED);
     }
 }
