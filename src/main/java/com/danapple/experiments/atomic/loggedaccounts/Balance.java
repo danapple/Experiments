@@ -46,6 +46,16 @@ class Balance
         return computedBalance;
     }
 
+    Balance flattenLog()
+    {
+        long nowTime = System.currentTimeMillis();
+        getPendingLogEntries()
+                .stream()
+                .filter(log -> log.createTime() < nowTime - 500)
+                .forEach(log -> log.state().abort());
+        return new Balance(balance, getPendingLogEntries());
+    }
+
     int getLogLength()
     {
         return log.size();

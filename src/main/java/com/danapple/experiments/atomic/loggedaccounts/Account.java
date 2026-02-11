@@ -1,7 +1,6 @@
 package com.danapple.experiments.atomic.loggedaccounts;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class Account
@@ -23,11 +22,9 @@ public class Account
     public BigDecimal getBalance()
     {
         Balance oldBalance = balance.get();
-        BigDecimal balanceValue = oldBalance.getBalanceValue();
-        List<BalanceLogEntry> pendingLogEntries = oldBalance.getPendingLogEntries();
-        Balance newBalance = new Balance(balanceValue, pendingLogEntries);
+        Balance newBalance = oldBalance.flattenLog();
         balance.compareAndSet(oldBalance, newBalance);
-        return balanceValue;
+        return oldBalance.getBalanceValue();
     }
 
     boolean adjustBalance(final BigDecimal adjustment,
@@ -45,7 +42,7 @@ public class Account
             }
         }
 
-        BalanceLogEntry logEntry = new BalanceLogEntry(adjustment, sharedState);
+        BalanceLogEntry logEntry = new BalanceLogEntry(adjustment, sharedState, System.currentTimeMillis());
         Balance newBalance = oldBalance.addLogEntry(logEntry);
         return balance.compareAndSet(oldBalance, newBalance);
     }
