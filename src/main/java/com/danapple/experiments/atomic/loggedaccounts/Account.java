@@ -19,6 +19,12 @@ public class Account
         return accountNumber;
     }
 
+    // Coverage ignores this method if it is lower in the class.  Weird, but I want 100% coverage :-)
+    Balance getRawBalance()
+    {
+        return balance.get();
+    }
+
     public BigDecimal getBalance()
     {
         Balance oldBalance = balance.get();
@@ -45,10 +51,5 @@ public class Account
         BalanceLogEntry logEntry = new BalanceLogEntry(adjustment, sharedState, System.currentTimeMillis());
         Balance newBalance = oldBalance.addLogEntry(logEntry);
         return balance.compareAndSet(oldBalance, newBalance);
-    }
-
-    Balance getRawBalance()
-    {
-        return balance.get();
     }
 }

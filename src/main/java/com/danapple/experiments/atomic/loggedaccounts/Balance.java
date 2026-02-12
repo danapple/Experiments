@@ -25,7 +25,7 @@ class Balance
         this.log = newLog;
     }
 
-    Balance addLogEntry(BalanceLogEntry logEntry)
+    Balance addLogEntry(final BalanceLogEntry logEntry)
     {
         List<BalanceLogEntry> newList = new ArrayList<>(log);
         newList.add(logEntry);
@@ -37,11 +37,10 @@ class Balance
         BigDecimal computedBalance = balance;
         for (BalanceLogEntry entry : log)
         {
-            if (entry.state().getStatus() != BalanceLogStatus.COMPLETE)
+            if (entry.state().getStatus() == BalanceLogStatus.COMPLETE)
             {
-                continue;
+                computedBalance = computedBalance.add(entry.delta());
             }
-            computedBalance = computedBalance.add(entry.delta());
         }
         return computedBalance;
     }
